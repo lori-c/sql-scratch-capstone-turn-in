@@ -1,0 +1,132 @@
+--1. Quiz Funnel
+
+SELECT *
+FROM survey
+LIMIT 10;
+
+--2. Create a quiz funnel using the GROUP BY command.
+
+SELECT question, COUNT(DISTINCT user_id)
+FROM survey
+GROUP BY question;
+
+--3. Use Excel to calculate user response rate per question. No SQL code.
+
+--4. Examine the first five rows of tables quiz, home_try_on, and purchase.
+
+SELECT *
+FROM quiz
+LIMIT 5;
+
+SELECT *
+FROM home_try_on
+LIMIT 5;
+
+SELECT *
+FROM purchase
+LIMIT 5;
+
+--5. Create a new table combining the tables quiz, home_try_on, and purchase.
+
+SELECT DISTINCT q.user_id,
+	h.user_id IS NOT NULL AS 'is_home_try_on',
+	h.number_of_pairs,
+	p.user_id IS NOT NULL AS 'is_purchase'
+FROM quiz q
+LEFT JOIN home_try_on h
+ON q.user_id = h.user_id
+LEFT JOIN purchase p
+ON q.user_id = p.user_id
+LIMIT 10;
+
+--6. Funnel analysis
+
+--Calculate overall conversion rates by aggregating across all rows.
+WITH funnels AS(
+SELECT DISTINCT q.user_id,
+	h.user_id IS NOT NULL AS 'is_home_try_on',
+	h.number_of_pairs,
+	p.user_id IS NOT NULL AS 'is_purchase'
+FROM quiz q
+LEFT JOIN home_try_on h
+ON q.user_id = h.user_id
+LEFT JOIN purchase p
+ON q.user_id = p.user_id)
+SELECT Count(*) AS 'num_browse',
+	SUM(is_home_try_on) AS 'num_try_on',
+	SUM(is_purchase) AS 'num_purchase',
+	1.0*SUM(is_home_try_on)/COUNT(*) AS 'percent_try_on',
+	1.0*SUM(is_purchase)/SUM(is_home_try_on) AS 'percent_purchase'
+FROM funnels;
+
+--Query to calculate the difference in purchase rates between customers who had 3 number_of_pairs with ones who had 5.
+WITH funnels AS(
+SELECT DISTINCT q.user_id,
+  h.user_id IS NOT NULL AS 'is_home_try_on',
+	h.number_of_pairs AS 'pairs',
+	p.user_id IS NOT NULL AS 'is_purchase'
+FROM quiz q
+LEFT JOIN home_try_on h
+ON q.user_id = h.user_id
+LEFT JOIN purchase p
+ON h.user_id = p.user_id)
+SELECT 
+  SUM(CASE
+       WHEN pairs = '3 pairs'
+       THEN is_purchase
+      END) AS '3_pairs_purchased',
+  SUM(CASE
+       WHEN pairs = '5 pairs'
+       THEN is_purchase
+      END) AS '5_pairs_purchased',
+  SUM(CASE
+       WHEN pairs = '3 pairs'
+       THEN is_home_try_on
+     	END) AS '3_pairs_tried',
+  SUM(CASE
+       WHEN pairs = '5 pairs'
+       THEN is_home_try_on
+      END) AS '5_pairs_tried',
+((SUM(CASE
+       WHEN pairs = '3 pairs'
+       THEN is_purchase
+      END))*1.0/
+  (SUM(CASE
+       WHEN pairs = '3 pairs'
+       THEN is_home_try_on
+     	END))) AS 'percent_3',
+ ((SUM(CASE
+       WHEN pairs = '5 pairs'
+       THEN is_purchase
+      END))*1.0/
+  (SUM(CASE
+       WHEN pairs = '5 pairs'
+       THEN is_home_try_on
+      END))) AS 'percent_5'
+FROM funnels;
+
+--The most popular fits of the Style Quiz.
+ SELECT fit, 
+ COUNT(CASE
+ WHEN style LIKE 'Women%'
+ THEN fit
+ END) AS 'Women Styles',
+ COUNT(CASE
+ WHEN style LIKE 'Men%'
+ THEN fit
+ END) AS 'Men Styles'
+ FROM quiz
+ GROUP BY 1;
+
+--The most commonly purchased by price and style.
+ SELECT price, 
+ COUNT(CASE
+ WHEN style LIKE 'Women%'
+ THEN price
+ END) AS 'Women Styles',
+ COUNT(CASE
+ WHEN style LIKE 'Men%'
+ THEN price
+ END) AS 'Men Styles'
+ FROM purchase
+ GROUP BY 1;
